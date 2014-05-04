@@ -1,0 +1,73 @@
+BICseq is a Perl package that provides genome-wide detection of copy number variations (CNV) from whole-genome high-throughput sequencing reads. The main functionality of the Perl package is performed by the C-code BIC-seq. To detect CNVs in a case genome (e.g. a  tumor genome), BICseq requires a control genome (e.g. a  matched normal genome) for removing biases in the sequecing data. 
+
+Warning: make sure your case and control genome are processed in the same way (e.g. with the same number of PCR cycles). Otherwise, the biases in the case and control genomes could be different and this may result in false positives. We are working towards normalizing case/control data separately and calling CNVs based on the normalized data. To avoid false positives caused by mappability differences among reads of different lengths, BICseq assumes all reads are of the same length.
+
+Usage: BIC-seq.pl [options] <ConfigFile> <OutputDir> <Description>
+Options:
+        --help
+        --lambda=<float>: default 2
+        --bin_size=<int>: default 100
+        --multiplicity=<float>: default 2
+        --window=<int>: the window for removing the outliers; default 200
+        --f=<float>: expected number of type I errors in the merging process; An alternative way to specify lambda
+        --B=<int>: number of permutations for FDR estimate; default 0
+        --paired: if specified the data is treated as paired-end data
+        --I=<Insert,SDofInsert>: specify the insert size and standard deviation of insert size. Default <200,20>
+
+
+<ConfigFile>: the config file that tells BICseq where the read positions of case/control are stored. This file should be a tab-delimited file with three columns like the following
+
+chrom	case	control
+chr1	case/chr1.seq	control/chr1.seq
+chr2	case/chr2.seq	control/chr2.seq
+
+The first row of <ConfigFile> is the header of the file and will be IGNORED by BICseq.
+	1. The 1st column is the chromosome name
+	2. The 2nd/3rd column are the files that store the (uniquely mappable) read positions of the case/control genome on the chromosome of the 1st column.
+	3. The read position file should be a one column file, with each row represents the position of a read.
+
+Users can find examples of <ConfigFile> and read position files under example/
+
+
+<Outputdir>: the name of the directory to write the output (this cannot be an existing directory).
+
+<Description>: used to name the segmentation results under <OutputDir>
+
+--lambda: the penalty coefficient of the Bayesian Information Criterion (BIC). This parameter is the major parameter of BICseq. A larger lambda would give less false positives but would be less sensitive, and a smaller lambda would be more sensitive but with more false positives. To obtain optimal results, CNVs should be first filtered by a copy ratio threshold. For low coverage data (< 1X), a smaller lambda (e.g. 1 or 1.2) can achieve good sensitivity. To further reduce false discovery rate, one can apply a p-value threshold to remove the less significant CNVs. For medium coverage(2-5X), a larger lambda (lambda=2) should work well with no additional p-value filtering. For high coverage (5-30X), lambda=4 should give very confident calls while still detecting many small CNVs. If the data is very noisy (e.g. two samples have different local biases), on can choose a very large lambda (e.g. 100), though this will result in low sensitivity in detecting small CNVs.
+
+
+--bin_size: the inital bin size. 
+
+--multiplicity: a parameter used to determine outliers; Please see our paper for details about this parameter.
+
+--window: the window size used to determine outliers.
+
+--f: expected number of type I errors in the merging process.
+
+--B: the number of permutations for FDR estimation. We suggest to use permutation only if you choose lambda to be small (< 2), since there will be no CNV call in almost all of the permuted data with a larger lambda. Of note, the permutation for deep sequencing data (e.g. > 10X) is quite time-consuming.
+
+--paired: if specified, the data will be treated as paired-end data. Since two paired-end reads are not independent, if this is specified, each read will be treated as a half read.
+
+--I=<Insert,SDofInsert>: only valid if --paired and --B are present. This is used in the permutation.
+
+
+--------------------------------------------------------------------------------------------------------------------
+To get the mapping positions of the uniquely mapped reads, a user may use the modified version of samtools (included in this package).
+Suppose that the bam file is called example.bam and one wants to write the reads under the directory dir/. Then, one may use the following command to extract the mapping position of uniquely mapped reads.
+
+	samtools view -U BWA,dir/,N,N example.bam
+
+or 
+	samtools view -U Bowtie,dir/,N,N example.bam
+
+
+for BWA mapping and Bowtie mapping, respectively (currently, we only support BWA and Bowtie mapping). 
+
+--------------------------------------------------------------------------------------------------------------------
+
+
+
+
+Ruibin Xi
+Harvard Medical School
+Oct 7, 2011
